@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     EMBEDDING_PROVIDER: str = "local"  # "local" | "openai" | "gemini" | "voyage"
     
     # CORS
-    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    BACKEND_CORS_ORIGINS: list[str] = ["*"]
     
     model_config = SettingsConfigDict(
         env_file=".env",
