@@ -132,10 +132,14 @@ def parse_docx(file_path: str) -> Tuple[str, Dict[str, Any]]:
 
     # Detect Columns
     for section in doc.sections:
-        # Check if the section has more than 1 column
-        if section.columns and len(section.columns) > 1:
-            structural_metadata["has_columns"] = True
-            break
+        try:
+            if hasattr(section, '_sectPr') and section._sectPr.xpath('./w:cols[@w:num]'):
+                cols = section._sectPr.xpath('./w:cols[@w:num]')[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}num')
+                if cols and int(cols) > 1:
+                    structural_metadata["has_columns"] = True
+                    break
+        except Exception:
+            pass
             
     # Detect Images / Shapes
     # Inline shapes are images, text boxes, or charts

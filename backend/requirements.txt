@@ -2,7 +2,6 @@ fastapi
 uvicorn
 pydantic
 pydantic-settings
-sqlalchemy
 pdfplumber
 python-docx
 mammoth
@@ -10,8 +9,6 @@ numpy
 spacy
 anthropic
 openai
-psycopg2-binary
-asyncpg
 python-multipart
 python-dotenv
 jinja2
