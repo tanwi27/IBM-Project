@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Next.js / Build outputs
+.next/
+out/
+build/
+dist/
+
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+pyvenv.cfg
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+!.env.example
+
+# Database / SQLite
+*.db
+*.sqlite3
+
+# IDEs and System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.pem
