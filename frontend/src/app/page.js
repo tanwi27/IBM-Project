@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 export default function Home() {
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
   // App State
   const [level, setLevel] = useState('Mid-level');
   const [targetRole, setTargetRole] = useState('');
@@ -84,7 +86,7 @@ export default function Home() {
 
   const fetchHistory = async (fileHash) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/history?file_hash=${fileHash}`);
+      const res = await fetch(`${BACKEND_URL}/api/v1/history?file_hash=${fileHash}`);
       if (res.ok) {
         const data = await res.json();
         setScoreHistory(data);
@@ -137,7 +139,7 @@ export default function Home() {
     formData.append('jd_text', jdText);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/v1/upload', {
+      const response = await fetch(`${BACKEND_URL}/api/v1/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -186,7 +188,7 @@ export default function Home() {
     params.append('flagged_issue', flaggedIssue);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/v1/autofix', {
+      const response = await fetch(`${BACKEND_URL}/api/v1/autofix`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params,
@@ -210,7 +212,7 @@ export default function Home() {
     params.append('feedback', feedback);
     
     try {
-      await fetch('http://127.0.0.1:8000/api/v1/feedback', {
+      await fetch(`${BACKEND_URL}/api/v1/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params,
