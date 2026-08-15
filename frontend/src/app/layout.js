@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Antigravity Screener — ATS Compliance Platform",
+  title: "Resume Screener — ATS Compliance Platform",
   description: "AI-powered deterministic parsing, qualitative evaluations, and semantic bullet AutoFix generator.",
 };
 

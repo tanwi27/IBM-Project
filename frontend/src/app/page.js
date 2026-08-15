@@ -274,7 +274,7 @@ export default function Home() {
         <div className="brand">
           <div className="brand-logo">Δ</div>
           <div>
-            <h1 className="brand-title">Antigravity Screener</h1>
+            <h1 className="brand-title">Resume Screener</h1>
             <div className="brand-subtitle">ATS Compliance Checker & AI Bullet AutoFix Platform</div>
           </div>
         </div>
