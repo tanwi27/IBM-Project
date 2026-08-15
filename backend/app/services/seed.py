@@ -1,7 +1,5 @@
 import json
 import logging
-from sqlalchemy.orm import Session
-from app.db.models import BulletLibrary
 from app.core.llm import generate_embeddings
 
 logger = logging.getLogger("uvicorn.error")
@@ -104,39 +102,4 @@ for role, level, bullet in BULLETS_DATA:
     if "Excel" in bullet:
         expanded_bullets.append((role, level, bullet.replace("Excel", "SQL and Google Sheets").replace("5%", "7%")))
 
-def seed_bullet_library(db: Session):
-    """Seeds the database with the pre-embedded high quality bullets."""
-    # Check if already seeded
-    count = db.query(BulletLibrary).count()
-    if count >= 100:
-        logger.info(f"Bullet library already contains {count} items. Skipping seeding.")
-        return
-        
-    logger.info(f"Seeding bullet library... (Total candidates: {len(expanded_bullets)})")
-    
-    # We will embed them in chunks to be efficient
-    bullet_texts = [item[2] for item in expanded_bullets]
-    
-    try:
-        # Embed all texts
-        embeddings = generate_embeddings(bullet_texts)
-        
-        # Save to DB
-        for i, (role, level, text) in enumerate(expanded_bullets):
-            emb = embeddings[i]
-            # Verify if this bullet text already exists to avoid duplicates
-            exists = db.query(BulletLibrary).filter(BulletLibrary.bullet_text == text).first()
-            if not exists:
-                db_item = BulletLibrary(
-                    role=role,
-                    level=level,
-                    bullet_text=text,
-                    embedding=emb
-                )
-                db.add(db_item)
-                
-        db.commit()
-        logger.info("Bullet library successfully seeded with vectors.")
-    except Exception as e:
-        logger.error(f"Failed during library seeding: {e}")
-        db.rollback()
+

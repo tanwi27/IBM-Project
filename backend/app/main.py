@@ -3,25 +3,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.endpoints import router as api_router
-from app.db.session import engine, Base, SessionLocal
-from app.db.models import Resume, Score, BulletLibrary, BulletRewrite
-from app.services.seed import seed_bullet_library
-
 # Setup logs
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("uvicorn.error")
-
-# Auto create tables on startup
-logger.info("Initializing database schemas...")
-Base.metadata.create_all(bind=engine)
-
-# Auto seed bullet library database
-logger.info("Pre-seeding vector reference bullet library...")
-db = SessionLocal()
-try:
-    seed_bullet_library(db)
-finally:
-    db.close()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

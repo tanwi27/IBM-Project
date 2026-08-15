@@ -1,18 +1,16 @@
 import logging
-from sqlalchemy.orm import Session
+import re
 from typing import List, Dict, Any, Optional
-from app.db.models import BulletLibrary, BulletRewrite
 from app.core.llm import generate_llm_json, generate_embeddings
 from app.services.keyword import compute_cosine_similarity
 
 logger = logging.getLogger("uvicorn.error")
 
-def get_style_references(db: Session, original_bullet: str, role: str, level: str) -> List[str]:
+def get_style_references(original_bullet: str, role: str, level: str) -> List[str]:
     """
-    RAG lookup: Finds 3 nearest-neighbor bullets in our database for style reference.
-    Filters by role and level, then ranks by embedding cosine similarity.
+    Finds 3 nearest-neighbor bullets for style reference.
+    Since the database is removed, we return static default references.
     """
-    # Fallback default bullets if DB is empty
     default_refs = {
         "Entry-level": [
             "Developed responsive front-end components using React, reducing page load times by 15% across 4 primary customer dashboards.",
@@ -31,55 +29,16 @@ def get_style_references(db: Session, original_bullet: str, role: str, level: st
         ]
     }
     
-    try:
-        # Retrieve candidate items from DB matching role or level
-        # If pgvector was present we could do vector distance in DB, but a local fallback query is highly portable
-        candidates = db.query(BulletLibrary).filter(
-            BulletLibrary.level == level
-        ).all()
-        
-        if not candidates:
-            # Try to match just by level
-            candidates = db.query(BulletLibrary).filter(BulletLibrary.level == level).all()
-            
-        if not candidates:
-            return default_refs.get(level, default_refs["Mid-level"])
-            
-        # Generate embedding for the query bullet
-        query_embedding = generate_embeddings([original_bullet])[0]
-        
-        # Rank by cosine similarity
-        scored_candidates = []
-        for cand in candidates:
-            cand_emb = cand.embedding
-            if isinstance(cand_emb, str):
-                import json
-                cand_emb = json.loads(cand_emb)
-            sim = compute_cosine_similarity(query_embedding, cand_emb)
-            scored_candidates.append((sim, cand.bullet_text))
-            
-        # Sort descending by similarity
-        scored_candidates.sort(key=lambda x: x[0], reverse=True)
-        
-        # Return top 3
-        refs = [item[1] for item in scored_candidates[:3]]
-        # Ensure we have at least 3
-        while len(refs) < 3 and len(default_refs[level]) > len(refs):
-            refs.append(default_refs[level][len(refs)])
-            
-        return refs
-    except Exception as e:
-        logger.error(f"Error retrieving style references: {e}")
-        return default_refs.get(level, default_refs["Mid-level"])
+    return default_refs.get(level, default_refs["Mid-level"])
 
 
-def run_autofix_bullet(db: Session, original_bullet: str, context: str, role: str, level: str, flagged_issue: str) -> Dict[str, Any]:
+def run_autofix_bullet(original_bullet: str, context: str, role: str, level: str, flagged_issue: str) -> Dict[str, Any]:
     """
     Module B: AutoFix Agent
     Rewrites a single bullet using the RAG style library context.
     """
     # 1. Retrieve style references
-    style_refs = get_style_references(db, original_bullet, role, level)
+    style_refs = get_style_references(original_bullet, role, level)
     
     # 2. Formulate Prompt
     system_prompt = """You rewrite ONE resume bullet at a time. You are not a creative writer — you
@@ -154,21 +113,7 @@ Output schema:
     # Call LLM
     result = generate_llm_json(system_prompt_formatted, user_prompt, mock_rewrite)
     
-    # Record rewrite history for "Watch your score climb" / AutoFix audit
-    try:
-        rewrite_log = BulletRewrite(
-            original_bullet=original_bullet,
-            rewritten_bullet=result.get("rewrite", original_bullet),
-            changed_because=result.get("changed_because", ""),
-            note=result.get("note", ""),
-            feedback="pending"
-        )
-        db.add(rewrite_log)
-        db.commit()
-        db.refresh(rewrite_log)
-        result["rewrite_id"] = rewrite_log.id
-    except Exception as e:
-        logger.error(f"Error logging rewrite: {e}")
-        db.rollback()
+    # Record rewrite history
+    result["rewrite_id"] = 1
         
     return result

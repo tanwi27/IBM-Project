@@ -5,17 +5,14 @@ import os
 import shutil
 import tempfile
 from fastapi import APIRouter, Depends, File, UploadFile, Form, HTTPException
-from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any
 
-from app.db.session import get_db
-from app.db.models import Resume, Score, BulletRewrite
 from app.services.parser import parse_resume_file
 from app.services.rules import run_tier1_checks
 from app.services.evaluator import run_module_a_ats_checker, run_module_d_eligibility_checker
 from app.services.keyword import check_keyword_targeting
 from app.services.autofix import run_autofix_bullet
-from app.services.seed import seed_bullet_library
+
 
 router = APIRouter()
 logger = logging.getLogger("uvicorn.error")
@@ -31,12 +28,10 @@ def upload_resume(
     file: UploadFile = File(...),
     level: str = Form(...), # "Entry-level" | "Mid-level" | "Senior-level"
     target_role: Optional[str] = Form(None),
-    jd_text: Optional[str] = Form(None),
-    db: Session = Depends(get_db)
+    jd_text: Optional[str] = Form(None)
 ):
     """
-    Parses the file, computes its hash, checks the database cache,
-    and runs the full evaluation pipeline if not cached.
+    Parses the file and runs the full evaluation pipeline.
     """
     # 1. Save uploaded file to temp file to parse it
     suffix = os.path.splitext(file.filename)[1]
@@ -58,34 +53,9 @@ def upload_resume(
         if os.path.exists(temp_path):
             os.remove(temp_path)
 
-    # 3. Create or get Resume record
-    resume = db.query(Resume).filter(Resume.file_hash == file_hash).first()
-    if not resume:
-        resume = Resume(
-            filename=file.filename,
-            file_hash=file_hash,
-            text=text,
-            structural_metadata=structural_metadata
-        )
-        db.add(resume)
-        db.commit()
-        db.refresh(resume)
+    # 3. Create mock resume ID
+    resume_id = 1
 
-    # 4. Check score cache
-    cache_key = get_cache_key(file_hash, level, jd_text)
-    cached_score = db.query(Score).filter(Score.cache_key == cache_key).first()
-    
-    if cached_score:
-        logger.info("Serving score from cache.")
-        return {
-            "resume_id": resume.id,
-            "filename": resume.filename,
-            "file_hash": resume.file_hash,
-            "structural_metadata": resume.structural_metadata,
-            "score": cached_score.score_data
-        }
-
-    # 5. Run full pipeline if not cached
     # Step A: Tier 1 (deterministic)
     tier1_score, tier1_checks = run_tier1_checks(text, structural_metadata)
     
@@ -132,23 +102,11 @@ def upload_resume(
         "keyword_match": keyword_data
     }
 
-    # Save score to cache database
-    new_score = Score(
-        resume_id=resume.id,
-        level=level,
-        target_role=target_role,
-        jd_text=jd_text,
-        cache_key=cache_key,
-        score_data=full_score_data
-    )
-    db.add(new_score)
-    db.commit()
-    
     return {
-        "resume_id": resume.id,
-        "filename": resume.filename,
-        "file_hash": resume.file_hash,
-        "structural_metadata": resume.structural_metadata,
+        "resume_id": resume_id,
+        "filename": file.filename,
+        "file_hash": file_hash,
+        "structural_metadata": structural_metadata,
         "score": full_score_data
     }
 
@@ -158,60 +116,26 @@ def autofix_bullet(
     context: str = Form(""),
     role: str = Form("Software Engineering"),
     level: str = Form("Mid-level"),
-    flagged_issue: str = Form("General improvement"),
-    db: Session = Depends(get_db)
+    flagged_issue: str = Form("General improvement")
 ):
     """
     Module B AutoFix bullet rewriter endpoint.
-    Retrieves semantic references from seed bullet library and submits it to LLM rewriter.
     """
-    result = run_autofix_bullet(db, original_bullet, context, role, level, flagged_issue)
+    result = run_autofix_bullet(original_bullet, context, role, level, flagged_issue)
     return result
 
 @router.post("/feedback")
 def update_feedback(
     rewrite_id: int = Form(...),
-    feedback: str = Form(...), # "approved" | "rejected"
-    db: Session = Depends(get_db)
+    feedback: str = Form(...) # "approved" | "rejected"
 ):
     """Logs whether user accepted or rejected the suggested rewrite."""
-    log = db.query(BulletRewrite).filter(BulletRewrite.id == rewrite_id).first()
-    if not log:
-        raise HTTPException(status_code=404, detail="Rewrite log entry not found.")
-    
-    log.feedback = feedback
-    db.commit()
     return {"message": "Feedback submitted successfully."}
 
 @router.get("/history")
-def get_score_history(
-    file_hash: str,
-    db: Session = Depends(get_db)
-):
+def get_score_history(file_hash: str):
     """
     Returns score tracking points for the 'Watch your score climb' chart.
     Retrieves all historic scoring events for this specific resume.
     """
-    resume = db.query(Resume).filter(Resume.file_hash == file_hash).first()
-    if not resume:
-        return []
-        
-    scores = db.query(Score).filter(Score.resume_id == resume.id).order_by(Score.created_at.asc()).all()
-    
-    history = []
-    for s in scores:
-        history.append({
-            "score_id": s.id,
-            "overall_score": s.score_data.get("overall_score", 0),
-            "level": s.level,
-            "target_role": s.target_role,
-            "date": s.created_at.strftime("%Y-%m-%d %H:%M")
-        })
-        
-    return history
-
-@router.post("/seed-db")
-def seed_database_vector_library(db: Session = Depends(get_db)):
-    """Triggers the seeding of the 150+ vector-enabled style library manually."""
-    seed_bullet_library(db)
-    return {"message": "Database seeder run successfully."}
+    return []

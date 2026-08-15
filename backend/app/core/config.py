@@ -6,9 +6,6 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "AI Resume Screener"
     API_V1_STR: str = "/api/v1"
     
-    # Database
-    DATABASE_URL: str = "sqlite:///./resume_screener.db"
-    
     # LLM Settings
     # Supports "gemini", "anthropic", "openai"
     PRIMARY_LLM_PROVIDER: str = "openai"  
